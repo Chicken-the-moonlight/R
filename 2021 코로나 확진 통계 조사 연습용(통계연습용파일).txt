@@ -1,0 +1,1004 @@
+library(reshape2)
+#각 디렉토리에 따른 경로설정
+one='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/1월' #1월
+two='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/2월' #2월
+three='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/3월' #3월
+four='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/4월' #4월
+five='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/5월' #5월
+six='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/6월' #6월
+seven='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/7월' #7월
+eight='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/8월' #8월
+nine='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/9월' #9월
+ten='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/10월' #10월
+eleven='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/11월' #11월
+twelven='C:/Rwodrd/covid 19/csse_covid_19_daily_reports/12월' #12월
+# 각 값을 월별로 배당
+one1=list.files(one)
+two1=list.files(two)
+three1=list.files(three)
+four1=list.files(four)
+five1=list.files(five)
+six1=list.files(six)
+seven1=list.files(seven)
+eight1=list.files(eight)
+nine1=list.files(nine)
+ten1=list.files(ten)
+eleven1=list.files(eleven)
+twelven1=list.files(twelven)
+
+# 데이터 초기화
+final2 <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/12-31-2021.csv")
+final2
+final3 <- final2[, c("Country_Region", "Confirmed", "Deaths")]
+final4 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = final3, sum)
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+final4
+# 첫데이터
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/12-31-2020.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+#1월
+for(i in 1:length(one1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/1월")
+  file<-read.csv(one1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+final5
+
+# 홀수열(확진자)만 모으기
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+data_mod2
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+data_mod2
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+abc
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총1월평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총1월평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+
+total=data.frame()
+total=df[c(1,8,9)]
+total
+# 값초기화
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+#2월
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/01-31-2021.csv")
+ffff <- fff1[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff1, sum)
+for(i in 1:length(two1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/2월")
+  file<-read.csv(two1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff1, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+df
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총2월평균확진자 <- df$총확진자 %/% (28-df$확진자음수값 -df$확진자NA)
+df$총2월평균사망자 <- df$총사망자 %/% (28-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+total
+#갑초기화
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+#3월
+
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/02-28-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(three1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/3월")
+  file<-read.csv(three1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+df$총3월평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총3월평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+total
+
+#4월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/03-31-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(four1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/4월")
+  file<-read.csv(four1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총4월일평균확진자 <- df$총확진자 %/% (30-df$확진자음수값 -df$확진자NA)
+df$총4월일평균사망자 <- df$총사망자 %/% (30-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+total
+#5월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/04-30-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(five1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/5월")
+  file<-read.csv(five1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총5월평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총5월평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+
+#6월
+
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/05-31-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(six1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/6월")
+  file<-read.csv(six1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총6월일평균확진자 <- df$총확진자 %/% (30-df$확진자음수값 -df$확진자NA)
+df$총6월일평균사망자 <- df$총사망자 %/% (30-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+#7월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/06-30-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(seven1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/7월")
+  file<-read.csv(seven1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총7월일평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총7월일평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+#8월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/07-31-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(eight1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/8월")
+  file<-read.csv(eight1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총8월일평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총8월일평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+#9월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/08-31-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(nine1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/9월")
+  file<-read.csv(nine1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총9월일평균확진자 <- df$총확진자 %/% (30-df$확진자음수값 -df$확진자NA)
+df$총9월일평균사망자 <- df$총사망자 %/% (30-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+#10월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/09-30-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(ten1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/10월")
+  file<-read.csv(ten1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총10월일평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총10월일평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+df
+total=cbind(total,df[c(8,9)])
+#11월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/10-31-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(eleven1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/11월")
+  file<-read.csv(eleven1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총11월일평균확진자 <- df$총확진자 %/% (30-df$확진자음수값 -df$확진자NA)
+df$총11월일평균사망자 <- df$총사망자 %/% (30-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+#12월
+final4$Confirmed <- final4$Confirmed * 0
+final4$Deaths<- final4$Deaths * 0
+fff <- read.csv("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/11-30-2021.csv")
+ffff <- fff[, c("Country_Region", "Confirmed", "Deaths")]
+fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = ffff, sum)
+fffff
+# 각 반복
+for(i in 1:length(twelven1)){
+  setwd("C:/Rwodrd/covid 19/csse_covid_19_daily_reports/12월")
+  file<-read.csv(twelven1[i])
+  file2<-file[, c("Country_Region", "Confirmed", "Deaths")]
+  file3 <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = file2, sum)
+  df.tmp <- merge(fffff, file3, by="Country_Region", all=TRUE)
+  df.tmp[is.na(df.tmp)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  fffff <- file[, c("Country_Region", "Confirmed", "Deaths")]
+  fffff <- aggregate(cbind(Confirmed, Deaths) ~ Country_Region, data = fffff, sum)
+  df.tmp$"확진자" <- df.tmp$Confirmed.y - df.tmp$Confirmed.x
+  df.tmp$"사망자" <- df.tmp$Deaths.y - df.tmp$Deaths.x
+  aaa <- df.tmp[, c("Country_Region", "확진자", "사망자")]
+  aaa[is.na(aaa)] <- 0 # <중요> 중간 계산시 NA를 0으로 처리해줘야 Micronesia의 확진자 1명이 누락되지 않음.
+  final4 <- merge(x = final4, y = aaa, by = "Country_Region", all = TRUE)
+}
+
+final5 <- final4[, -c(1, 2, 3)]
+
+cols <- ncol(final5)
+odd_cols <- seq_len(cols) %% 2
+data_mod <- final5[, odd_cols == 1]
+data_mod
+# 확진자 중 음수값인 것들
+zerocount1 <- rowSums(data_mod<0)
+zerocount1[is.na(zerocount1)] <- 0
+
+# 확진자 중 NA값인 것들
+NAcount1 <- rowSums(is.na(data_mod))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod[data_mod < 0] <- 0
+data_mod[is.na(data_mod)] <- 0
+
+# 짝수열(사망자)만 모으기
+cols2 <- ncol(final5)
+odd_cols2 <- seq_len(cols) %% 1
+data_mod2 <- final5[, odd_cols == 0]
+
+# 사망자 중 음수값인 것들
+zerocount2 <- rowSums(data_mod2<0)
+zerocount2[is.na(zerocount2)] <- 0
+
+# 사망자 중 NA값인 것들
+NAcount2 <- rowSums(is.na(data_mod2))
+
+# 음수값, NA값 도출했으니 0으로 처리
+data_mod2[data_mod2 < 0] <- 0
+data_mod2[is.na(data_mod2)] <- 0
+
+# 홀수열, 짝수열끼리 모은 데이터를 행으로 합산하여 총확진자, 총사망자 도출
+abc <- rowSums(data_mod[, -1], na.rm = T)
+abc2 <- rowSums(data_mod2[, -1], na.rm = T)
+
+# 1열에는 국가 2, 3열에는 방금 도출한 총확진자 총사망자를 포함한 데이터프레임 생성
+abc3 <- final4[, 1]
+df <- data.frame(abc3, abc, abc2, zerocount1, zerocount2, NAcount1, NAcount2)
+names(df) <- c("국가", "총확진자", "총사망자", "확진자음수값", "사망자음수값", "확진자NA", "사망자NA")
+
+
+
+# (1) 일별 국가별 코로나 발생자수와 사망자 수를 기준으로 전처리 하시오. 일부
+# 국가는 지역별로 코로나 발생자수와 사망자 수가 분리되어 있으니 국가별로 집계
+# 하고 국가, 총발생자수, 총사망자수, 일평균 발생자수, 일평균 사망자수 리스트를
+# 제시하시오. (누적데이터인 경우 누적데이터로 해당 결과를 제시하고, 일별 데이터를 
+# 산출하여 총합과 일평균값을 산출하여 결과 비교)
+
+# 일별데이터와 누적데이터 결과 비교가 핵심.
+
+# 일별데이터
+df$총12월일평균확진자 <- df$총확진자 %/% (31-df$확진자음수값 -df$확진자NA)
+df$총12월일평균사망자 <- df$총사망자 %/% (31-df$사망자음수값 -df$사망자NA)
+total=cbind(total,df[c(8,9)])
+total
+library(tidyverse)
+write.csv(total,file ='C:/Rwodrd/covid 19/total.csv')
+#그래프 제작
+install.packages('ggplot2')
+library(ggplot2)
+ggplot(data=total,)
